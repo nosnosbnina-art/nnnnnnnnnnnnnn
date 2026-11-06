@@ -1,0 +1,80 @@
+name: Generate Floodstorm Video
+
+on:
+  workflow_dispatch:
+    inputs:
+      prompt:
+        description: "Video prompt (leave empty to use floodstorm-video-prompt.md)"
+        required: false
+        type: string
+      duration:
+        description: "Video duration"
+        required: true
+        default: "5"
+        type: choice
+        options:
+          - "5"
+          - "10"
+      aspect_ratio:
+        description: "Video aspect ratio"
+        required: true
+        default: "9:16"
+        type: choice
+        options:
+          - "9:16"
+          - "16:9"
+          - "1:1"
+
+permissions:
+  contents: read
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Check API secret
+        env:
+          FAL_KEY: ${{ secrets.FAL_KEY }}
+        run: |
+          if [ -z "$FAL_KEY" ]; then
+            echo "::error::Missing FAL_KEY. Add it in Settings > Secrets and variables > Actions."
+            exit 1
+          fi
+
+      - name: Read prompt and generate video
+        env:
+          FAL_KEY: ${{ secrets.FAL_KEY }}
+          INPUT_PROMPT: ${{ inputs.prompt }}
+          VIDEO_DURATION: ${{ inputs.duration }}
+          VIDEO_ASPECT: ${{ inputs.aspect_ratio }}
+        run: |
+          if [ -n "$INPUT_PROMPT" ]; then
+            echo "$INPUT_PROMPT" > /tmp/video-prompt.txt
+          else
+            cp floodstorm-video-prompt.md /tmp/video-prompt.txt
+          fi
+          python - <<'PY'
+          import os
+          p = open("/tmp/video-prompt.txt", encoding="utf-8").read()
+          p = p.replace("# Miniature Floodstorm — Video Prompt", "").strip()
+          with open(os.environ.get("GITHUB_ENV"), "a") as f:
+              f.write("VIDEO_PROMPT<<PROMPT_EOF\n" + p + "\nPROMPT_EOF\n")
+          PY
+          python scripts/generate_video.py
+
+      - name: Upload generated MP4
+        uses: actions/upload-artifact@v4
+        with:
+          name: floodstorm-video
+          path: output/floodstorm-video.mp4
+          if-no-files-found: error
+          retention-days: 7
