@@ -7,7 +7,7 @@ from pathlib import Path
 
 MODEL = "fal-ai/kling-video/v2.5-turbo/pro/text-to-video"
 BASE = "https://queue.fal.run/" + MODEL
-PROMPT = os.environ.get("VIDEO_PROMPT", "").strip()
+PROMPT = os.environ.get("VIDEO_PROMPT", "").strip()\nif not PROMPT and Path("/tmp/video-prompt.txt").exists():\n    PROMPT = Path("/tmp/video-prompt.txt").read_text(encoding="utf-8").strip()
 DURATION = os.environ.get("VIDEO_DURATION", "5")
 ASPECT = os.environ.get("VIDEO_ASPECT", "9:16")
 KEY = os.environ.get("FAL_KEY", "").strip()
